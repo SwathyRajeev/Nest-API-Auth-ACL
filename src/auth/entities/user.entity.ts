@@ -35,9 +35,8 @@ export class User extends BaseEntity {
     })
     roles: Role[];
 
-
-    @Column({ default: false })
-    isAdmin: boolean;
+    @Column({ default: null })
+    photo: string;
 
     @Column()
     salt: string;
