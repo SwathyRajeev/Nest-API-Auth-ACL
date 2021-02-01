@@ -82,6 +82,7 @@ export class UserRepository extends Repository<User> {
         'user.name',
         'user.user_name',
         'user.phone',
+        'user.photo',
         'user.email',
         'user.create_date',
         'user.status'
@@ -98,7 +99,7 @@ export class UserRepository extends Repository<User> {
     }
   }
 
-  async findOneUser(id: string): Promise<UpdateUserDto> {
+  async findOneUser(id: string): Promise<User> {
     try {
       const query = this.createQueryBuilder('user')
         .select([
@@ -106,10 +107,10 @@ export class UserRepository extends Repository<User> {
           'user.name',
           'user.user_name',
           'user.phone',
+          'user.photo',
           'user.email',
           'user.create_date',
           'user.status'
-
         ])
         .leftJoinAndSelect('user.roles', 'role')
         .where({ status: true, user_id: id });
@@ -119,11 +120,16 @@ export class UserRepository extends Repository<User> {
     }
   }
 
-  async updateUser(id: string, updateAuthDto: UpdateUserDto): Promise<UpdateUserDto> {
+  async updateUser(id: string, updateUserDto: UpdateUserDto): Promise<UpdateUserDto> {
     const query = this.createQueryBuilder();
     try {
+      let userData = await this.findOneUser(id);
+      userData.name = updateUserDto.name
+      userData.phone = updateUserDto.phone
+      userData.email = updateUserDto.email
+
       await query.update()
-        .set(updateAuthDto)
+        .set(userData)
         .where({ user_id: id })
         .execute();
       return await this.findOneUser(id);
@@ -132,8 +138,39 @@ export class UserRepository extends Repository<User> {
     }
   }
 
-  async removeUser(id: string) {
-    return `This action removes a #${id} auth`;
+  async removeUser(id: string): Promise<UpdateUserDto> {
+    const query = this.createQueryBuilder();
+    try {
+      let userData = await this.findOneUser(id);
+      userData.status = !userData.status;
+      await query.update()
+        .set(userData)
+        .where({ user_id: id })
+        .execute();
+      return await this.findOneUser(id);
+    } catch (err) {
+      throw new NotFoundException(err);
+    }
   }
 
+  // async removeUser(id: string) {
+  //   return `This action removes a #${id} auth`;
+  // }
+
+  async updatePhoto(
+    filename: string,
+    user: User,
+  ): Promise<User> {
+
+    let userData = await this.findOneUser(user.user_id);
+    userData.photo = filename;
+    userData.user_id = user.user_id;
+    try {
+      await userData.save();
+      return userData;
+    } catch (exception) {
+      console.log(exception);
+      throw new InternalServerErrorException(exception.detail);
+    }
+  }
 }

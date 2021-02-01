@@ -1,5 +1,6 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, InternalServerErrorException, Param, Post, Put, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { randomName } from 'src/utilities/unique.name.generator';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
@@ -12,11 +13,29 @@ import { RoleEnum } from './role.enum';
 import { hasRoles } from './roles.decorator';
 import { RolesGuard } from './roles.guard';
 
+import { diskStorage } from 'multer';
+import { PROFILE_IMAGE_PATH } from './../utilities/strings.resource';
+import path = require('path');
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Observable, of } from 'rxjs';
+import { join } from 'path';
+
+export const storage = {
+  storage: diskStorage({
+    destination: PROFILE_IMAGE_PATH,
+    filename: (req, file, callback) => {
+      const filename: string = randomName('Profile');
+      const extension: string = path.parse(file.originalname).ext;
+      callback(null, `${filename}${extension}`);
+    },
+  }),
+};
+
+
 @Controller('auth')
 @ApiTags('Authentication')
 export class AuthController {
-  constructor(private readonly authService: AuthService,
-    // private caslAbilityFactory: CaslAbilityFactory
+  constructor(private readonly authService: AuthService
   ) { }
 
   @Post('/signUp')
@@ -28,14 +47,10 @@ export class AuthController {
     return this.authService.signIn(authCredentialsDto);
   }
 
-
-
   @Get()
   findAll() {
     return this.authService.findAll();
   }
-
-
 
   @hasRoles(RoleEnum.Admin)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -43,11 +58,8 @@ export class AuthController {
   @Get('test')
   findAllTest(@GetUser() user: User) {
     console.log(user);
-    // return user;
     return this.authService.findAll();
   }
-
-
 
   @Get(':id')
   findOne(@Param('id') id: string): Promise<UpdateUserDto> {
@@ -64,9 +76,35 @@ export class AuthController {
     return this.authService.remove(id);
   }
 
-  @Get('role-test')
-  getTest() {
-    // console.log('role-test')
-    return this.authService.findAll();
+
+
+  @Post('upload')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @UseInterceptors(FileInterceptor('file', storage))
+  uploadFile(@UploadedFile() file, @GetUser() user: User): Promise<User> {
+    try {
+      console.log(`User creating a Profile. Data: ${JSON.stringify(user)}`);
+      return this.authService.updatePhoto(file.filename, user);
+    } catch (err) {
+      throw new InternalServerErrorException(err);
+    }
   }
+
+  @Get('photo/:photo')
+  findProfileImage(
+    @Param('photo') photo,
+    @Res() res,
+  ): Observable<Object> {
+    try {
+      return of(
+        res.sendFile(
+          join(process.cwd(), PROFILE_IMAGE_PATH + '/' + photo),
+        ),
+      );
+    } catch (err) {
+      throw new InternalServerErrorException(err);
+    }
+  }
+
 }

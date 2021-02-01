@@ -5,6 +5,7 @@ import { UserRepository } from './auth.repository';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { User } from './entities/user.entity';
 import { AuthPayload } from './interface/auth.payload.interface';
 import { JwtPayload } from './interface/jwt-payload.interface';
 
@@ -87,4 +88,15 @@ export class AuthService {
       throw new UnauthorizedException('Invalid Credential');
     }
   }
+
+  async updatePhoto(
+    filename: string,
+    user: User,
+): Promise<User> {
+    try {
+        return this.userRepository.updatePhoto(filename, user);
+    } catch (err) {
+        throw new InternalServerErrorException(err.detail);
+    }
+}
 }
